@@ -22,9 +22,8 @@ BEGIN;
             patt_tail = re.compile(r'^!eof')
             patt_sub = re.compile(r'SPVM\d{2,3}[A-Z]?')
             repl = 'SPVM118A'
+            
             for line in f_src_sql:
-        
-        
                 if re.search(patt_head,line):
                     f_des_sql.write(head)
                 elif re.search(patt_body,line):
@@ -39,31 +38,49 @@ BEGIN;
             f_src_sql.close()
             f_des_sql.close()
     except:
-
         pass
    
-
+def Process_data(src_data,des_data):
+    try:
+        try:
+            f_src_data = open(src_data,'r')
+            f_des_data = open(des_data,'w')
+            
+            patt_sub = re.compile(r'SPVM\d{2,3}[A-Z]?')
+            repl = 'SPVM118A'
+            
+            for line in f_src_data:
+                if re.search(patt_sub,line):
+                    f_des_data.write(re.sub(patt_sub,repl,line))
+                else:
+                    f_des_data.write(line)               
+        finally:
+            f_src_data.close()
+            f_des_data.close()     
+    except:
+        pass
+        
 def Find_file(root_dir):
 
-    List_sql = []
+    List_file = []
     for root,dirs,files in os.walk(root_dir):
-
         for f in files:
-            if f.split('.')[-1] == 'sql':
-                List_sql.append(os.path.join(root,f))
-    
-    return List_sql
+            List_file.append(os.path.join(root,f))  
+    return List_file
 
 
-if __name__ == '__main__':
-    
+if __name__ == '__main__': 
+
     cur_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     input_path = os.path.join(cur_dir,'src_sql')
     output_path = os.path.join(cur_dir,'des_sql')
 
-    List_sql = Find_file(input_path)
-    for file in List_sql:
-        src_sql = file
-        des_sql = os.path.join(output_path,os.path.basename(file))
-
-        Process_sql(src_sql,des_sql)
+    List_file = Find_file(input_path)
+    for file in List_file:
+        src_file = file
+        des_file = os.path.join(output_path,os.path.basename(file))
+        
+        if os.path.basename(file).split('.')[-1] == 'sql': 
+            Process_sql(src_file,des_file)
+        elif os.path.basename(file).split('.')[-1] == 'data':
+            Process_data(src_file,des_file)
