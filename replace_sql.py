@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+# Usage: ./replace_sql.py
+# Put your data will be processed in the src directory, excute this script, and result data 
+# will generated in des directory.
+#
+# Aug,22,2014
+#
+
 import os,sys
 import re
 
@@ -50,8 +57,8 @@ BEGIN;
         finally:
             f_src_sql.close()
             f_des_sql.close()
-    except:
-        pass
+    except IOError:
+        print 'file open failed!'
    
 def Process_data(src_data,des_data):
     try:
@@ -70,8 +77,8 @@ def Process_data(src_data,des_data):
         finally:
             f_src_data.close()
             f_des_data.close()     
-    except:
-        pass
+    except IOError:
+        print 'file open failed!'
         
 def Find_file(root_dir):
 
@@ -81,12 +88,19 @@ def Find_file(root_dir):
             List_file.append(os.path.join(root,f))  
     return List_file
 
+def RemoveFile(path):
+    if len(os.listdir(path)) != 0:
+        for file in os.listdir(path):
+            targetfile = os.path.join(path,file)
+            os.remove(targetfile)
 
 if __name__ == '__main__': 
 
     cur_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     input_path = os.path.join(cur_dir,'src')
     output_path = os.path.join(cur_dir,'des')
+    
+    RemoveFile(output_path)
 
     List_file = Find_file(input_path)
     for file in List_file:
@@ -98,4 +112,3 @@ if __name__ == '__main__':
             Process_sql(src_file,des_file)
         elif os.path.basename(file).split('.')[-1] == 'data':
             Process_data(src_file,des_file)
-            
