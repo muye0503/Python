@@ -7,6 +7,7 @@ import os,sys
 import cx_Oracle
 import traceback
 import copy
+import time
 
 # Process the xml file
 def Process_xml(file_name): 
@@ -31,7 +32,8 @@ def Process_xml(file_name):
     for table in tree.iter('TABLE'):
     
     # Skipping the RTDB table processing
-        m=re.search('RTDB',table.get('NAME'))
+        patt_1 = re.compile(r'RTDB')
+        m=re.search(patt_1,table.get('NAME'))
         if m is not None:
             continue 
 
@@ -70,8 +72,8 @@ def Process_xml(file_name):
     # Processing the global table 
     flag_1 = 'Server' 
     for table in tree.iter('NON_TABLE'):
-        
-        m=re.search('global_static|global_rc',table.get('NAME'))
+        patt_2 = re.compile(r'global_static|global_rc')
+        m=re.search(patt_2,table.get('NAME'))
         if m is not None and flag_1 == 'Server' :
             Dict1.setdefault('global_server',table.get('NAME'))
             flag_1 = 'Client' 
@@ -155,15 +157,20 @@ def Process_sym(file_name):
             aList=re.split(';|\s',line)
             spa_tb=aList[0]
             # filter the normal table
-            if re.search('tbl',aList[-1]) is not None:
+            patt_1 = re.compile(r'tbl')
+            patt_2 = re.compile(r'server global;rc$')
+            patt_3 = re.compile(r'client global;rc$')
+            if re.search(patt_1,aList[-1]) is not None:
                 Dict2.setdefault(aList[0],aList[-1])
-            elif re.search('server global;rc$',line) is not None:
+            elif re.search(patt_2,line) is not None:
                 Dict2.setdefault(aList[0],'global_server')
-            elif re.search('client global;rc$',line) is not None:
+            elif re.search(patt_3,line) is not None:
                 Dict2.setdefault(aList[0],'global_client')
         elif len(line):
-            if re.search('\[\]',line) is not None:
-                col_esm=re.search('].(.+)',line.split(';')[1]).group(1)
+            patt_4 = re.compile(r'\[\]')
+            if re.search(patt_4,line) is not None:
+                patt_5 = re.compile(r'].(.+)')
+                col_esm=re.search(patt_5,line.split(';')[1]).group(1)
                 col_spa=line.split(';')[-2]
             else:
                 #print line
@@ -204,66 +211,67 @@ def Process_sym(file_name):
 
 def Conn_DB(tb_eSM,service):
 
-    
-    conn = cx_Oracle.connect("sms", "nsms123", "NSMS")
-    cur = conn.cursor()
+    try:
+        conn = cx_Oracle.connect("sms", "nsms123", "NSMS")
+        cur = conn.cursor()
 
-    #tb_eSM = 'Subscriber_Num_Val_N'
-
-    # Get table name in Oracle database 
-    #sql_eSM_tb_name = "select dbtblname from svcdatatype where svcname='SUREPAY' and sdtname like '"+tb_eSM+"%'"
-    sql_eSM_tb_name = "select dbtblname from svcdatatype where svcname='"+service+"' and sdtname like '"+tb_eSM+"'"
-
-    cur.execute(sql_eSM_tb_name)
-    rows = cur.fetchone() 
-    for row in rows: 
-        #eSM_tb_name_cut = re.match('[A-Za-z0-9]+_(\w+)',row).group(1) 
-        tb_eSM_Oracle=row
-        #print eSM_tb_name_cut 
-        #print tb_eSM_Oracle
+        #tb_eSM = 'Subscriber_Num_Val_N'
+        #Get table name in Oracle database 
+        #sql_eSM_tb_name = "select dbtblname from svcdatatype where svcname='SUREPAY' and sdtname like '"+tb_eSM+"%'"
+        sql_eSM_tb_name = "select dbtblname from svcdatatype where svcname='"+service+"' and sdtname like '"+tb_eSM+"'"
         
-        #if tb_eSM != 'global_static':
-        if re.search('global_static|global_rc',tb_eSM) is None:
-            # Get the svcname and sotname of the table
-            #sql_svc_sot_eSM = "select svcname,sotname from sottosdtsetmap where sdtsetname='"+eSM_tb_name_cut+"'"
-            sql_svc_sot_eSM = "select svcname,sotname from sottosdtsetmap where svcname='"+service+"' and sdtsetname='"+tb_eSM+"'"
-            #print sql_svc_sot_eSM
-    
-            cur.execute(sql_svc_sot_eSM)
-            rows = cur.fetchone() 
-            #print rows
-            svc_name=rows[0]
-            sot_name=rows[1]
-        elif service == 'SUREPAY' and tb_eSM == 'global_static':
-            svc_name = 'SUREPAY'
-            sot_name = 'Global SurePay'
-        elif service == 'AUDIT' and tb_eSM == 'global_static':
-            svc_name = 'AUDIT'
-            sot_name = 'Global'
-        elif service == 'DROUTER' and tb_eSM == 'global_rc':
-            svc_name = 'DROUTER'
-            sot_name = 'Global Parameters'
-        elif service == 'EPPSM' and tb_eSM == 'global_rc':
-            svc_name = 'EPPSM'
-            sot_name = 'Global EPPSM'
-    
-        # Get the soid and sogid of the table
-        sql_soid_sogid_eSM = "select soid,sogid from svcobj where svcname= '"+ svc_name + "' and sotname= '" + sot_name+ "'"        
-        #print sql_soid_sogid_eSM 
         try:
-            cur.execute(sql_soid_sogid_eSM)
-            rows = cur.fetchone()
-            soid=rows[0]
-            sogid=rows[1]
-        except TypeError,e:
-            print 'No soid and sogid found!'
+            cur.execute(sql_eSM_tb_name)
+            rows = cur.fetchone() 
+            for row in rows: 
+                #eSM_tb_name_cut = re.match('[A-Za-z0-9]+_(\w+)',row).group(1) 
+                tb_eSM_Oracle=row
+                #print eSM_tb_name_cut 
+                #print tb_eSM_Oracle
+                
+                #if tb_eSM != 'global_static':
+                patt_1=re.compile(r'global_static|global_rc')
+                if re.search(patt_1,tb_eSM) is None:
+                    # Get the svcname and sotname of the table
+                    #sql_svc_sot_eSM = "select svcname,sotname from sottosdtsetmap where sdtsetname='"+eSM_tb_name_cut+"'"
+                    sql_svc_sot_eSM = "select svcname,sotname from sottosdtsetmap where svcname='"+service+"' and sdtsetname='"+tb_eSM+"'"
+                    #print sql_svc_sot_eSM
             
-    cur.close()
-    conn.commit()
-    conn.close()
+                    cur.execute(sql_svc_sot_eSM)
+                    rows = cur.fetchone() 
+                    #print rows
+                    svc_name=rows[0]
+                    sot_name=rows[1]
+                elif service == 'SUREPAY' and tb_eSM == 'global_static':
+                    svc_name = 'SUREPAY'
+                    sot_name = 'Global SurePay'
+                elif service == 'AUDIT' and tb_eSM == 'global_static':
+                    svc_name = 'AUDIT'
+                    sot_name = 'Global'
+                elif service == 'DROUTER' and tb_eSM == 'global_rc':
+                    svc_name = 'DROUTER'
+                    sot_name = 'Global Parameters'
+                elif service == 'EPPSM' and tb_eSM == 'global_rc':
+                    svc_name = 'EPPSM'
+                    sot_name = 'Global EPPSM'
+            
+                # Get the soid and sogid of the table
+                sql_soid_sogid_eSM = "select soid,sogid from svcobj where svcname= '"+ svc_name + "' and sotname= '" + sot_name+ "'"        
+                #print sql_soid_sogid_eSM 
+            
+                cur.execute(sql_soid_sogid_eSM)
+                rows = cur.fetchone()
+                soid=rows[0]
+                sogid=rows[1]
+        finally:
+            cur.close()
+            conn.commit()
+            conn.close()
 
-    List_eSM_DB=[tb_eSM_Oracle,soid,sogid]      
-    return List_eSM_DB 
+        List_eSM_DB=[tb_eSM_Oracle,soid,sogid]      
+        return List_eSM_DB 
+    except TypeError,UnboundLocalError:
+         print 'No soid and sogid found!'
 
 #print '==================================================='
 
@@ -399,11 +407,6 @@ def List_Col_Pro(List_str_2,List_Dict_spa_sll_col,List_Dict_sll_sll_col,List_Dic
     
 def Process_sql(spa_sql,esm_sql,Dict_sll_esm,Dict_sll_esm_col_mapping,Dict_sll_esm_col,Dict_sll_sll_col,Dict_spa_sll,Dict_spa_sll_col,service):
 
-    Dict1=Dict_sll_esm
-    Dict3=Dict_sll_esm_col
-    Dict2=Dict_spa_sll
-    Dict4=Dict_spa_sll_col  
-
     f_sql = open(spa_sql,'r')
     f_esm_sql = open(esm_sql,'w')
 
@@ -412,41 +415,46 @@ def Process_sql(spa_sql,esm_sql,Dict_sll_esm,Dict_sll_esm_col_mapping,Dict_sll_e
 
     for line in f_sql:
         line = line.strip() 
-        if not len(line) or not re.search('SPA|spa\w+',line): 
+        patt_1 = re.compile(r'SPA|spa\w+')
+        if not len(line) or not re.search(patt_1,line): 
             continue
-        tb_SPA=re.search('SPA\w+|spa\w+',line).group()
+        tb_SPA=re.search(patt_1,line).group()
         tb_SPA_ori=copy.deepcopy(tb_SPA)
         tb_SPA=tb_SPA.upper()
 
         str_4 = ''  
         str_5 = ''
         print tb_SPA    
-        if tb_SPA in Dict2: 
-            if Dict2[tb_SPA] in Dict1:
-                List_DB=Conn_DB(Dict1[Dict2[tb_SPA]],service)
-                if re.search('SPA\w+',line) is not None:
-                    print '--->%s' %tb_SPA
+        if tb_SPA in Dict_spa_sll: 
+            if Dict_spa_sll[tb_SPA] in Dict_sll_esm:
+                List_DB=Conn_DB(Dict_sll_esm[Dict_spa_sll[tb_SPA]],service)
+                patt_2 = re.compile(r'SPA\w+')
+                patt_3 = re.compile(r'spa\w+')
+                if re.search(patt_2,line) is not None:
+                    #print '--->%s' %tb_SPA
                     str_1=line.replace(tb_SPA,List_DB[0])
-                elif re.search('spa\w+',line) is not None:
-                    print '--->%s' %tb_SPA_ori
+                elif re.search(patt_3,line) is not None:
+                    #print '--->%s' %tb_SPA_ori
                     str_1=line.replace(tb_SPA_ori,List_DB[0])
                     
                 soid=str(List_DB[1])
                 sogid=str(List_DB[2])
                 print str_1 
                 print List_DB
-
-                match_1=re.search('\((.+)\)',str_1) 
+                
+                patt_4 = re.compile(r'\((.+)\)')
+                match_1=re.search(patt_4,str_1) 
                 if match_1 is None:
                     #print str_1
                     f_esm_sql.write('%s%s' %(str_1,os.linesep))
                     continue    
                 str_2=match_1.group(1).strip()
                 print str_2 
-                match_2=re.match('(.+)\(',str_1).group(1)
+                patt_5 = re.compile(r'(.+)\(')
+                match_2=re.match(patt_5,str_1).group(1)
                 #print match_2
                 List_str_2 = str_2.split(',')
-                if Dict2[tb_SPA] == 'global_server':
+                if Dict_spa_sll[tb_SPA] == 'global_server':
                     Dict_server={}
                     for item in Dict_spa_sll_col[tb_SPA]:
                         Dict_server.setdefault(item,List_str_2.pop(0))
@@ -458,7 +466,7 @@ def Process_sql(spa_sql,esm_sql,Dict_sll_esm,Dict_sll_esm_col_mapping,Dict_sll_e
                     for item in Dict_sll_sll_col['global_server']:
                         Dict_sll_sll_col['global_server'][index]=Dict_server[item]
                         index+=1
-                elif Dict2[tb_SPA] == 'global_client':
+                elif Dict_spa_sll[tb_SPA] == 'global_client':
                     Dict_client={}
                     for item in Dict_spa_sll_col[tb_SPA]:
                         Dict_client.setdefault(item,List_str_2.pop(0))
@@ -761,9 +769,11 @@ if __name__ == '__main__':
                     #print len(Dict_sll_sll_col.get('global_server'))
                     #print len(Dict_sll_sll_col.get('global_client'))
                     #print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'     
-
+                    
+                    time_start = time.time()
                     Process_sql(List_conf[-1],output_path,Dict_sll_esm,Dict_sll_esm_col_mapping,Dict_sll_esm_col,Dict_sll_sll_col,Dict_spa_sll,Dict_spa_sll_col,spa)    
-
+                    time_end = time.time()
+                    print 'Elapsed:%s s' %(time_end - time_start)
                 else:
                     print "Input is Wrong!\n"
 
